@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase';
 
-export const dynamic = 'force-dynamic';
-
 export default function MyProfile() {
   const router = useRouter();
-  const [profile, setProfile] = useState(null);
+  const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
@@ -23,7 +21,7 @@ export default function MyProfile() {
   useEffect(() => {
     if (!isMounted) return;
 
-    const loadProfile = async () => {
+    const loadProfiles = async () => {
       const supabase = createBrowserClient();
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -38,34 +36,32 @@ export default function MyProfile() {
         .from('applicant_profiles')
         .select('*')
         .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
+        .order('updated_at', { ascending: false });
 
       if (error && error.code !== 'PGRST116') {
-        setError('Error loading profile');
+        setError('Error loading profiles');
       } else {
-        setProfile(data);
+        setProfiles(data || []);
       }
 
       setLoading(false);
     };
 
-    loadProfile();
+    loadProfiles();
   }, [router, isMounted]);
 
-  const handleDelete = async () => {
-    if (!confirm('Delete your profile? This cannot be undone.')) return;
+  const handleDelete = async (profileId) => {
+    if (!confirm('Delete this profile? This cannot be undone.')) return;
 
     try {
       const supabase = createBrowserClient();
       const { error } = await supabase
         .from('applicant_profiles')
         .delete()
-        .eq('id', profile.id);
+        .eq('id', profileId);
 
       if (error) throw error;
-      router.push('/');
+      setProfiles(profiles.filter(p => p.id !== profileId));
     } catch (err) {
       setError(err.message);
     }
@@ -89,32 +85,19 @@ export default function MyProfile() {
         Back to Home
       </Link>
 
-      <div className="bg-white rounded-lg shadow p-8">
-        <div className="flex justify-between items-start mb-8">
+      <div className="bg-white rounded-lg shadow p-8 mb-8">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Your Applicant Profile</h1>
-            <p className="text-gray-600 mt-2">
-              Last updated {profile ? new Date(profile.updated_at).toLocaleDateString() : 'Never'}
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900">Your Profiles</h1>
+            <p className="text-gray-600 mt-2">Manage your applicant profiles</p>
           </div>
-          <div className="flex gap-3">
-            <Link
-              href={`/profile?edit=${profile?.id || ''}`}
-              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-            >
-              <Edit size={20} />
-              Edit
-            </Link>
-            {profile && (
-              <button
-                onClick={handleDelete}
-                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-              >
-                <Trash2 size={20} />
-                Delete
-              </button>
-            )}
-          </div>
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+          >
+            <Plus size={20} />
+            New Profile
+          </Link>
         </div>
 
         {error && (
@@ -123,30 +106,62 @@ export default function MyProfile() {
           </div>
         )}
 
-        {profile ? (
-          <div className="space-y-8">
-            {Object.entries(profile).map(([key, value]) => {
-              if (key === 'id' || key === 'user_id' || key === 'created_at' || key === 'updated_at') return null;
-              
-              return (
-                <div key={key}>
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">
-                    {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                  </h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{value || 'Not provided'}</p>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-600 mb-6">No profile created yet</p>
+        {profiles.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 rounded-lg">
+            <p className="text-gray-600 mb-6">No profiles created yet</p>
             <Link
               href="/profile"
               className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
             >
-              Create Profile
+              <Plus size={20} />
+              Create Your First Profile
             </Link>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {profiles.map(profile => (
+              <div key={profile.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:border-indigo-300 transition-colors">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900">{profile.name}</h3>
+                    <p className="text-gray-600 text-sm mt-1">
+                      Updated {new Date(profile.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/profile?edit=${profile.id}`}
+                      className="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded font-semibold text-sm transition-colors"
+                    >
+                      <Edit size={16} />
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(profile.id)}
+                      className="inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded font-semibold text-sm transition-colors"
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {profile.career_goals && (
+                    <div>
+                      <p className="text-gray-600 font-semibold">Career Goals</p>
+                      <p className="text-gray-700 line-clamp-2">{profile.career_goals}</p>
+                    </div>
+                  )}
+                  {profile.clinical_experience && (
+                    <div>
+                      <p className="text-gray-600 font-semibold">Clinical</p>
+                      <p className="text-gray-700 line-clamp-2">{profile.clinical_experience}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

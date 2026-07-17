@@ -15,6 +15,7 @@ export default function ProfileBuilder() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
   const [backgroundText, setBackgroundText] = useState('');
+  const [profileName, setProfileName] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
@@ -41,7 +42,6 @@ export default function ProfileBuilder() {
       
       setUser(user);
 
-      // Get edit ID from URL
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
         const id = params.get('edit');
@@ -57,6 +57,7 @@ export default function ProfileBuilder() {
             .single();
 
           if (data) {
+            setProfileName(data.name || '');
             setProfile({
               clinical_experience: data.clinical_experience || '',
               research_experience: data.research_experience || '',
@@ -78,6 +79,11 @@ export default function ProfileBuilder() {
   const inferProfile = async () => {
     if (!backgroundText.trim()) {
       setError('Please enter your background information');
+      return;
+    }
+
+    if (!profileName.trim()) {
+      setError('Please give your profile a name');
       return;
     }
 
@@ -123,6 +129,7 @@ export default function ProfileBuilder() {
         const { error } = await supabase
           .from('applicant_profiles')
           .update({
+            name: profileName,
             ...profile,
             updated_at: new Date().toISOString()
           })
@@ -137,7 +144,12 @@ export default function ProfileBuilder() {
       } else {
         const { data, error } = await supabase
           .from('applicant_profiles')
-          .insert([profile])
+          .insert([
+            {
+              name: profileName,
+              ...profile
+            }
+          ])
           .select()
           .single();
 
@@ -179,7 +191,7 @@ export default function ProfileBuilder() {
           <>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Build Your Applicant Profile</h1>
             <p className="text-gray-600 mb-8">
-              Paste your resume, CV, or background summary. We'll analyze it and extract key information about your experience, goals, and values. You can edit everything after!
+              Give your profile a name, then paste your resume, CV, or background summary. We'll analyze it and extract key information about your experience, goals, and values.
             </p>
 
             {error && (
@@ -187,6 +199,20 @@ export default function ProfileBuilder() {
                 <p className="text-red-800">{error}</p>
               </div>
             )}
+
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Profile Name
+              </label>
+              <input
+                type="text"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="e.g., 'My Main Profile', 'Research-Focused', 'Clinical-Heavy'"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+              <p className="text-gray-600 text-sm mt-1">Give this a descriptive name so you can find it later</p>
+            </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -237,6 +263,10 @@ export default function ProfileBuilder() {
                 <p className="text-green-800">{success}</p>
               </div>
             )}
+
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-blue-900 font-semibold">Profile: {profileName}</p>
+            </div>
 
             <div className="space-y-6">
               {Object.entries(profile).map(([key, value]) => (

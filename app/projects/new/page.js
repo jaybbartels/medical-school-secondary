@@ -8,7 +8,7 @@ import { createBrowserClient } from '@/lib/supabase';
 
 export default function NewProject() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1: Select Profile, 2: School Notes, 3: School & Questions
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -39,10 +39,9 @@ export default function NewProject() {
       }
       setUser(user);
 
-      // Load user's profiles
       const { data, error } = await supabase
         .from('applicant_profiles')
-        .select('id, clinical_experience, research_experience, career_goals')
+        .select('id, name, career_goals, clinical_experience')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
@@ -102,7 +101,7 @@ export default function NewProject() {
             profile_id: selectedProfileId,
             title: formData.title,
             medical_school_name: formData.medical_school_name,
-            user_background: '', // Not used anymore, but keeping for compatibility
+            user_background: '',
             school_specific_notes: schoolSpecificNotes
           }
         ])
@@ -184,7 +183,7 @@ export default function NewProject() {
                           )}
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">Profile {profiles.indexOf(profile) + 1}</h3>
+                          <h3 className="font-semibold text-gray-900 mb-1">{profile.name}</h3>
                           {profile.career_goals && (
                             <p className="text-sm text-gray-600">Goal: {profile.career_goals.substring(0, 100)}...</p>
                           )}
