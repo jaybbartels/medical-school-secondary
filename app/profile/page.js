@@ -146,8 +146,15 @@ export default function ProfileBuilder() {
           .from('applicant_profiles')
           .insert([
             {
+              user_id: user.id,
               name: profileName,
-              ...profile
+              clinical_experience: profile.clinical_experience,
+              research_experience: profile.research_experience,
+              leadership_volunteer: profile.leadership_volunteer,
+              career_goals: profile.career_goals,
+              personal_values: profile.personal_values,
+              unique_story: profile.unique_story,
+              skills_accomplishments: profile.skills_accomplishments
             }
           ])
           .select()
@@ -162,6 +169,7 @@ export default function ProfileBuilder() {
         }, 2000);
       }
     } catch (err) {
+      console.error('Error saving profile:', err);
       setError(err.message);
     } finally {
       setLoading(false);
