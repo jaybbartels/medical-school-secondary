@@ -12,6 +12,7 @@ export default function ProjectDetail() {
   const projectId = params.id;
   
   const [project, setProject] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,10 +20,10 @@ export default function ProjectDetail() {
   const [generatingForQuestion, setGeneratingForQuestion] = useState(null);
 
   useEffect(() => {
-    fetchProjectAndQuestions();
+    fetchProjectAndRelated();
   }, [projectId]);
 
-  const fetchProjectAndQuestions = async () => {
+  const fetchProjectAndRelated = async () => {
     try {
       const supabase = createBrowserClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -32,6 +33,7 @@ export default function ProjectDetail() {
         return;
       }
 
+      // Fetch project
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .select('*')
@@ -42,6 +44,20 @@ export default function ProjectDetail() {
       if (projectError) throw projectError;
       setProject(projectData);
 
+      // Fetch profile if exists
+      if (projectData.profile_id) {
+        const { data: profileData } = await supabase
+          .from('applicant_profiles')
+          .select('*')
+          .eq('id', projectData.profile_id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+        }
+      }
+
+      // Fetch questions
       const { data: questionsData, error: questionsError } = await supabase
         .from('secondary_questions')
         .select('*')
@@ -105,11 +121,17 @@ export default function ProjectDetail() {
 
     setGeneratingForQuestion(question.id);
     try {
+      const userBackground = profile ? 
+        `CLINICAL: ${profile.clinical_experience}\nRESEARCH: ${profile.research_experience}\nLEADERSHIP: ${profile.leadership_volunteer}\nGOALS: ${profile.career_goals}\nVALUES: ${profile.personal_values}\nSTORY: ${profile.unique_story}\nSKILLS: ${profile.skills_accomplishments}`
+        : '';
+
+      const schoolContext = project.school_specific_notes ? `\nSCHOOL-SPECIFIC NOTES: ${project.school_specific_notes}` : '';
+
       const response = await fetch('/api/generate-recommendation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userBackground: project.user_background,
+          userBackground: userBackground + schoolContext,
           medicalSchoolName: project.medical_school_name,
           question: question.question_text,
           questionNumber: question.question_number,
@@ -171,6 +193,11 @@ export default function ProjectDetail() {
       <div className="bg-white rounded-lg shadow p-8 mb-8">
         <h1 className="text-3xl font-bold text-gray-900">{project.title}</h1>
         <p className="text-gray-600 mt-2">{project.medical_school_name}</p>
+        {project.school_specific_notes && (
+          <p className="text-blue-700 mt-3 bg-blue-50 p-3 rounded">
+            <span className="font-semibold">School Notes:</span> {project.school_specific_notes}
+          </p>
+        )}
         <p className="text-sm text-gray-500 mt-4">
           Created {new Date(project.created_at).toLocaleDateString()}
         </p>
@@ -284,15 +311,8 @@ export default function ProjectDetail() {
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 className="font-bold text-blue-900 mb-2">💡 Next Steps</h3>
         <p className="text-blue-800 text-sm">
-          Use the generated recommendations above to craft your responses. Each recommendation includes:
+          Use the generated recommendations above to craft your responses. Each recommendation is personalized to your profile and this school's specific context.
         </p>
-        <ul className="text-blue-800 text-sm mt-3 space-y-1 list-disc list-inside">
-          <li>Key themes the school is looking for</li>
-          <li>How to connect your background to the question</li>
-          <li>Strategic elements to highlight</li>
-          <li>Common pitfalls to avoid</li>
-          <li>Opening hook suggestions</li>
-        </ul>
       </div>
     </div>
   );
