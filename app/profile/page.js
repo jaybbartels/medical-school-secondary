@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader, Wand2, Save } from 'lucide-react';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase';
 
 export default function ProfileBuilder() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const editProfileId = searchParams.get('edit');
+  const [editProfileId, setEditProfileId] = useState(null);
+  const [isMounted, setIsMounted] = useState(false);
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -29,37 +29,51 @@ export default function ProfileBuilder() {
   });
 
   useEffect(() => {
+    setIsMounted(true);
+    
     const checkAuth = async () => {
       const supabase = createBrowserClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) router.push('/auth');
+      if (!user) {
+        router.push('/auth');
+        return;
+      }
+      
       setUser(user);
 
-      // If editing existing profile, load it
-      if (editProfileId) {
-        const { data, error } = await supabase
-          .from('applicant_profiles')
-          .select('*')
-          .eq('id', editProfileId)
-          .eq('user_id', user.id)
-          .single();
+      // Get edit ID from URL
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('edit');
+        
+        if (id) {
+          setEditProfileId(id);
+          
+          const { data } = await supabase
+            .from('applicant_profiles')
+            .select('*')
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .single();
 
-        if (data) {
-          setProfile({
-            clinical_experience: data.clinical_experience || '',
-            research_experience: data.research_experience || '',
-            leadership_volunteer: data.leadership_volunteer || '',
-            career_goals: data.career_goals || '',
-            personal_values: data.personal_values || '',
-            unique_story: data.unique_story || '',
-            skills_accomplishments: data.skills_accomplishments || ''
-          });
-          setStep(2);
+          if (data) {
+            setProfile({
+              clinical_experience: data.clinical_experience || '',
+              research_experience: data.research_experience || '',
+              leadership_volunteer: data.leadership_volunteer || '',
+              career_goals: data.career_goals || '',
+              personal_values: data.personal_values || '',
+              unique_story: data.unique_story || '',
+              skills_accomplishments: data.skills_accomplishments || ''
+            });
+            setStep(2);
+          }
         }
       }
     };
+    
     checkAuth();
-  }, [router, editProfileId]);
+  }, [router]);
 
   const inferProfile = async () => {
     if (!backgroundText.trim()) {
@@ -106,7 +120,6 @@ export default function ProfileBuilder() {
       const supabase = createBrowserClient();
 
       if (editProfileId) {
-        // Update existing profile
         const { error } = await supabase
           .from('applicant_profiles')
           .update({
@@ -116,13 +129,12 @@ export default function ProfileBuilder() {
           .eq('id', editProfileId);
 
         if (error) throw error;
-        setSuccess('Profile updated! You can now re-run your applications to get updated recommendations.');
+        setSuccess('Profile updated! Redirecting...');
         
         setTimeout(() => {
           router.push('/');
         }, 2000);
       } else {
-        // Create new profile
         const { data, error } = await supabase
           .from('applicant_profiles')
           .insert([profile])
@@ -131,7 +143,7 @@ export default function ProfileBuilder() {
 
         if (error) throw error;
 
-        setSuccess('Profile created! Now add your first school.');
+        setSuccess('Profile created! Redirecting...');
         
         setTimeout(() => {
           router.push('/projects/new?profileId=' + data.id);
@@ -144,7 +156,7 @@ export default function ProfileBuilder() {
     }
   };
 
-  if (!user) {
+  if (!isMounted || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
