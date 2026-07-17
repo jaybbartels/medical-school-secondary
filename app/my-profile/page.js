@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, Loader } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
 
 export default function MyProfile() {
   const router = useRouter();
@@ -12,8 +14,15 @@ export default function MyProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
     const loadProfile = async () => {
       const supabase = createBrowserClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -43,7 +52,7 @@ export default function MyProfile() {
     };
 
     loadProfile();
-  }, [router]);
+  }, [router, isMounted]);
 
   const handleDelete = async () => {
     if (!confirm('Delete your profile? This cannot be undone.')) return;
@@ -62,7 +71,7 @@ export default function MyProfile() {
     }
   };
 
-  if (loading) {
+  if (!isMounted || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
