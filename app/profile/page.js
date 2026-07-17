@@ -53,7 +53,6 @@ export default function ProfileBuilder() {
             .from('applicant_profiles')
             .select('*')
             .eq('id', id)
-            .eq('user_id', user.id)
             .single();
 
           if (data) {
@@ -118,6 +117,12 @@ export default function ProfileBuilder() {
   };
 
   const handleSaveProfile = async () => {
+    if (!user) {
+      setError('Session expired. Please sign in again.');
+      router.push('/auth');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setSuccess('');
@@ -125,17 +130,34 @@ export default function ProfileBuilder() {
     try {
       const supabase = createBrowserClient();
 
+      // Verify session is still active
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError('Session expired. Please sign in again.');
+        router.push('/auth');
+        return;
+      }
+
       if (editProfileId) {
         const { error } = await supabase
           .from('applicant_profiles')
           .update({
             name: profileName,
-            ...profile,
+            clinical_experience: profile.clinical_experience,
+            research_experience: profile.research_experience,
+            leadership_volunteer: profile.leadership_volunteer,
+            career_goals: profile.career_goals,
+            personal_values: profile.personal_values,
+            unique_story: profile.unique_story,
+            skills_accomplishments: profile.skills_accomplishments,
             updated_at: new Date().toISOString()
           })
           .eq('id', editProfileId);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
         setSuccess('Profile updated! Redirecting...');
         
         setTimeout(() => {
@@ -160,7 +182,10 @@ export default function ProfileBuilder() {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
 
         setSuccess('Profile created! Redirecting...');
         
@@ -170,7 +195,7 @@ export default function ProfileBuilder() {
       }
     } catch (err) {
       console.error('Error saving profile:', err);
-      setError(err.message);
+      setError(err.message || 'Failed to save profile. Please check your internet connection and try again.');
     } finally {
       setLoading(false);
     }
